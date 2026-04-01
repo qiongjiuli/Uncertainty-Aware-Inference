@@ -1,0 +1,105 @@
+# configs/models.yaml
+# Central configuration for all models, precisions, and evaluation settings.
+# Referenced by all scripts via --config configs/models.yaml
+
+project:
+  name: "uncertainty-aware-inference"
+  wandb_project: "uncertainty-aware-inference"
+  wandb_entity: ""          # set your W&B entity here
+  seed: 42
+
+models:
+  llama2_7b:
+    model_id: "meta-llama/Llama-2-7b-hf"
+    display_name: "Llama-2-7B"
+    team: "A"
+    hidden_size: 4096
+    n_layers: 32
+    vocab_size: 32000
+    hub_ids:
+      GPTQ_INT4: "TheBloke/Llama-2-7B-GPTQ"
+      AWQ_INT4:  "TheBloke/Llama-2-7B-AWQ"
+
+  mistral_7b:
+    model_id: "mistralai/Mistral-7B-v0.1"
+    display_name: "Mistral-7B"
+    team: "B"
+    hidden_size: 4096
+    n_layers: 32
+    vocab_size: 32000
+    hub_ids:
+      GPTQ_INT4: "TheBloke/Mistral-7B-v0.1-GPTQ"
+      AWQ_INT4:  "TheBloke/Mistral-7B-v0.1-AWQ"
+
+  llama2_13b:
+    model_id: "meta-llama/Llama-2-13b-hf"
+    display_name: "Llama-2-13B"
+    team: "C"
+    hidden_size: 5120
+    n_layers: 40
+    vocab_size: 32000
+    hub_ids:
+      GPTQ_INT4: "TheBloke/Llama-2-13B-GPTQ"
+      AWQ_INT4:  "TheBloke/Llama-2-13B-AWQ"
+
+precisions:
+  - FP16
+  - GPTQ_INT8
+  - GPTQ_INT4
+  - AWQ_INT4
+  - NF4
+
+datasets:
+  arc_challenge:
+    hf_name: "ai2_arc"
+    hf_config: "ARC-Challenge"
+    uncertainty_profile: "factual"    # model should be confident on known facts
+    split: "validation"
+  hellaswag:
+    hf_name: "hellaswag"
+    uncertainty_profile: "reasoning"  # inherent ambiguity
+    split: "validation"
+  triviaqa:
+    hf_name: "trivia_qa"
+    hf_config: "rc.nocontext"
+    uncertainty_profile: "factual"
+    split: "validation"
+
+evaluation:
+  n_samples: 500          # samples per dataset per config
+  n_bins: 15              # ECE bins (Guo et al. 2017)
+  batch_size: 1           # log-likelihood scoring is sequential
+
+kd:
+  temperature: 4.0        # Hinton (2015): soften distributions
+  alpha: 0.7              # weight for KD loss
+  lr: 2.0e-5
+  n_epochs: 3
+  batch_size: 4
+  max_length: 256
+  n_kd_samples: 2000
+  warmup_ratio: 0.1
+  grad_clip: 1.0
+  lora_r: 16
+  lora_alpha: 32
+  lora_target_modules: ["q_proj", "v_proj"]
+
+profiling:
+  n_warmup_runs: 5
+  n_benchmark_runs: 20
+  n_new_tokens: 128
+  seq_len: 128            # for FLOPs/bytes estimation
+
+routing:
+  fp16_cost: 1.0
+  quant_cost: 0.25        # INT4 is ~4x cheaper
+  acc_tolerance: 0.01     # max allowed accuracy drop
+  ece_tolerance: 0.005    # max allowed ECE increase
+  n_threshold_steps: 100
+
+vllm:
+  port_base: 8000         # FP16=8000, GPTQ=8001, AWQ=8002, NF4=8003
+  gpu_memory_utilization: 0.90
+  max_model_len: 2048
+  n_concurrent: 8
+  total_requests: 100
